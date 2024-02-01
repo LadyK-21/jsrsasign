@@ -669,11 +669,10 @@ test("getExtAIAInfo test (DEPRECATED)", function() {
 
 });
 
-test("getCertificatePolicies", function() {
-var x = new X509();
-x.readCertPEM(certGithubPEM);
+test("getExtCertificatePolicies", function() {
+var x1 = new X509(certGithubPEM);
 deepEqual(
-x.getExtCertificatePolicies(),
+x1.getExtCertificatePolicies(),
 { extname:"certificatePolicies",
   array: [{
     policyoid: "2.16.840.1.114412.2.1",
@@ -683,10 +682,9 @@ x.getExtCertificatePolicies(),
 "for GitHub.com site"
 );  
 
-var x1 = new X509();
-x1.readCertPEM(pulseCioGovPEM);
+var x2 = new X509(pulseCioGovPEM);
 deepEqual(
-x1.getExtCertificatePolicies(),
+x2.getExtCertificatePolicies(),
 { extname:"certificatePolicies",
   array: [{
     policyoid: "2.23.140.1.2.1"
@@ -700,6 +698,178 @@ x1.getExtCertificatePolicies(),
 },
 "for pulse.cio.gov site Let's Encrypt cert");
 
+var x3 = new X509();
+var hIn = "3081b03081ad06092a8308868f4c01030330819f30819c06082b0601050507020230818f301a1a134d696e6973747279206f66204a75737469636530030201011a7154686973206365727469666963617465207761732069737375656420696e206163636f7264616e636520776974682074686520436f6d6d65726369616c20526567697374726174696f6e2041637420616e6420746865206f746865722072656c6174656420726567756c6174696f6e732e";
+var pExp = {
+    extname: "certificatePolicies",
+    array: [{
+	policyoid: "1.2.392.100300.1.3.3",
+	array: [{
+	    unotice: {
+		noticeref: {
+		    org: {type: "vis", str: "Ministry of Justice"},
+		    noticenum: [1]
+		},
+		exptext: {
+		    type: "vis",
+		    str: "This certificate was issued in accordance with the Commercial Registration Act and the other related regulations."
+		}
+	    }
+	}]
+    }]
+};
+deepEqual(x3.getExtCertificatePolicies(hIn, false), pExp, "moj CP");
+});
+
+test("_asn1ToUnotice", function() {
+var pIn, pExpect;
+var x = new X509();
+
+pIn = {
+  seq: [
+      {
+	  seq: [
+              {utf8str: {str: "test utf8 org name"}},
+              {seq: [{"int": {hex: "01"}}]}
+	  ]
+      },
+      {"utf8str": {"str": "test utf8 explicit text"}}
+  ]
+};
+pExpect = { 
+  noticeref: {
+    org: { type: "utf8", str: "test utf8 org name" },
+    noticenum: [1]
+  },
+  exptext: { type: "utf8", str: "test utf8 explicit text" }
+};
+deepEqual(x._asn1ToUnotice(pIn), pExpect, "noticeref, exptext");
+
+pIn = { seq: [ {"utf8str": {"str": "test utf8 explicit text"}} ] };
+pExpect = { exptext: { type: "utf8", str: "test utf8 explicit text" } };
+deepEqual(x._asn1ToUnotice(pIn), pExpect, "exptext");
+
+pIn = {
+  seq: [
+      {
+	  seq: [
+              {utf8str: {str: "test utf8 org name"}},
+              {seq: [{"int": {hex: "01"}}]}
+	  ]
+      }
+  ]
+};
+pExpect = { 
+  noticeref: {
+    org: { type: "utf8", str: "test utf8 org name" },
+    noticenum: [1]
+  }
+};
+deepEqual(x._asn1ToUnotice(pIn), pExpect, "noticeref");
+
+});
+
+test("_asn1ToNoticeRef", function() {
+var pIn, pExpect;
+var x = new X509();
+
+pIn = {
+    "seq": [
+        {"utf8str": {"str": "test utf8 org name"}},
+        {"seq": [{"int": {"hex": "01"}}]}
+    ]
+};
+pExpect = {
+    org: { type: "utf8", str: "test utf8 org name" },
+    noticenum: [1]
+};
+deepEqual(x._asn1ToNoticeRef(pIn), pExpect, "org, num");
+
+pIn = {"seq": [{"utf8str": {"str": "test utf8 org name"}}]};
+pExpect = { org: { type: "utf8", str: "test utf8 org name" } };
+deepEqual(x._asn1ToNoticeRef(pIn), pExpect, "org");
+
+pIn = {"seq": [{"seq": [{"int": {"hex": "01"}}]}]};
+pExpect = {noticenum: [1]};
+deepEqual(x._asn1ToNoticeRef(pIn), pExpect, "num");
+
+});
+
+test("_asn1ToNoticeNum", function() {
+    var pIn, pExpect;
+    var x = new X509();
+    pIn = {seq: [{"int": {hex: "01"}}, {"int": {hex: 16}}]};
+    pExpect = [1, 22];
+    deepEqual(x._asn1ToNoticeNum(pIn), pExpect, "[1, 22]");
+});
+
+test("getUserNotice", function() {
+var hIn, pExpect;
+var x = new X509();
+hIn = "303430190c12746573742075746638206f7267206e616d6530030201010c17746573742075746638206578706c696369742074657874";
+pExpect = {
+    noticeref: {
+	org: { type: "utf8", str: "test utf8 org name" },
+	noticenum: [1]
+    },
+    exptext: { type: "utf8", str: "test utf8 explicit text" }
+}
+deepEqual(x.getUserNotice(hIn), pExpect, "sample UserNotice");
+});
+
+test("getExtPolicyMappings", function() {
+var hIn, pExpect;
+var x = new X509();
+hIn = "300c300a0604551d200006020102";
+pExpect = {
+  extname: "policyMappings",
+  critical: true,
+  array: [["anyPolicy", "0.1.2"]]
+};
+deepEqual(x.getExtPolicyMappings(hIn, true), pExpect, JSON.stringify(pExpect));
+
+hIn = "3014300806022a0306020102300806022a0506020105";
+pExpect = {
+  extname: "policyMappings",
+  critical: true,
+  array: [["1.2.3", "0.1.2"],["1.2.5", "0.1.5"]]
+};
+deepEqual(x.getExtPolicyMappings(hIn, true), pExpect, JSON.stringify(pExpect));
+});
+
+
+test("getExtPolicyConstraints", function() {
+var hIn, pExpect;
+var x = new X509();
+
+hIn = "3003810103";
+pExpect = {
+  extname: "policyConstraints",
+  critical: true,
+  inhibit: 3
+};
+deepEqual(x.getExtPolicyConstraints(hIn, true), pExpect, JSON.stringify(pExpect));
+
+hIn = "3003800102";
+pExpect = {
+  extname: "policyConstraints",
+  critical: true,
+  reqexp: 2
+};
+deepEqual(x.getExtPolicyConstraints(hIn, true), pExpect, JSON.stringify(pExpect));
+});
+
+test("getExtInhibitAnyPolicy", function() {
+var hIn, pExpect;
+var x = new X509();
+
+hIn = "020103";
+pExpect = {
+  extname: "inhibitAnyPolicy",
+  critical: true,
+  skip: 3
+};
+deepEqual(x.getExtInhibitAnyPolicy(hIn, true), pExpect, JSON.stringify(pExpect));
 });
 
 // === OLD STATIC METHODS ==================
@@ -826,6 +996,21 @@ var r = x.getExtBasicConstraints();
 equal(r == undefined, true, "no basicConstraints returns undefined");
 });
 
+test("getExtSubjectDirectoryAttributes", function() {
+var hIn, pExpect;
+var x = new X509();
+hIn = "3025300d06042a03040531051303616161301406082b060105050709033108130666656d616c65";
+pExpect = {
+    extname: "subjectDirectoryAttributes",
+    array: [
+	{ attr: "1.2.3.4.5", array: [{prnstr: {str: "aaa"}}] },
+	{ attr: "gender", array: [{prnstr: {str: "female"}}] }
+    ]
+};
+deepEqual(x.getExtSubjectDirectoryAttributes(hIn), pExpect, "hoge");
+
+});
+
 test("parseExt(CSR) test (csrcertbot1)", function() {
   var x = new X509();
   x.parseExt(csrcertbot1);
@@ -904,7 +1089,7 @@ hIn = "a0380605604c010301a02f132d32363036313938363333373132353637383230303030303
 pExpect = {
   other: {
       oid: "2.16.76.1.3.1",
-      obj: {prnstr: {str: '260619863371256782000000000000000000000000000'}}
+      value: {prnstr: {str: '260619863371256782000000000000000000000000000'}}
   }
 };
 deepEqual(x.getGeneralName(hIn), pExpect, "other brazil");
@@ -913,7 +1098,7 @@ hIn = "a01f060a2a83088c9b5508050501a0110c0fe5b1b1e794b0e38080e5a4aae9838e";
 pExpect = {
   other: {
       oid: "1.2.392.200149.8.5.5.1",
-      obj: {utf8str: {str: '山田　太郎'}}
+      value: {utf8str: {str: '山田　太郎'}}
   }
 };
 deepEqual(x.getGeneralName(hIn), pExpect, "other jpki cn");
@@ -976,6 +1161,18 @@ pExpect = {
   str: "/C=AT/O=A-Trust Ges. für Sicherheitssysteme im elektr. Datenverkehr GmbH/OU=A-Trust-Qual-01/CN=A-Trust-Qual-01"
 };
 deepEqual(x.getX500Name(hIn), pExpect, "BMP(ICS2) non ascii)")
+
+hIn = "3064310f300d06035504040c0659616d616461310f300d060355042a0c0648616e616b6f3116301406035504030c0d59414d4144412048616e616b6f3128302606092a864886f70d010901161968616e616b6f2e79616d616461406578616d706c652e636f6d";
+pExpect = {
+  array: [
+    [{type: "SN", value: "Yamada", ds: "utf8"}],
+    [{type: "GN", value: "Hanako", ds: "utf8"}],
+    [{type: "CN", value: "YAMADA Hanako", ds: "utf8"}],
+    [{type: "E", value: "hanako.yamada@example.com", ds: "ia5"}]
+  ],
+  str: "/SN=Yamada/GN=Hanako/CN=YAMADA Hanako/E=hanako.yamada@example.com"
+};
+deepEqual(x.getX500Name(hIn), pExpect, "CABF SMIME BR sample");
 
 });
 
@@ -1113,6 +1310,46 @@ deepEqual(x.getGeneralSubtree(hIn), pExpect, "{dn: /C=US/O=...}");
 
 });
 
+test("getExtParam - unknown private extension", function() {
+var x = new X509();
+var hIn, pExpect;
+hIn = "301506092a8308868f4c01010504080c06e69db1e4baac";
+pExpect = {
+    extname: "1.2.392.100300.1.1.5",
+    extn: { utf8str: { str: "東京" } }
+};
+deepEqual(x.getExtParam(hIn), pExpect, "unknown extension 1.2.392.100300.1.1.5={prn 東京}");
+});
+
+test("X509.registExtParser", function() {
+var x = new X509();
+function _f1(oid, critical, hExtV) {
+    try {
+	var result = { extname: oid, value: ASN1HEX.parse(hExtV).utf8str.str };
+	if (critical) result.critical = true;
+	return result;
+    } catch(ex) {
+	return undefined;
+    }
+}
+
+X509.registExtParser("1.2.392.100300.1.1.2", _f1);
+var pExp = {
+    extname: "1.2.392.100300.1.1.2",
+    value: "東京"
+};
+deepEqual(x.getExtParam("301506092a8308868f4c01010204080c06e69db1e4baac"), pExp, "success case (=utf8)");
+
+var pExp2 = {
+    extname: "1.2.392.100300.1.1.2",
+    extn: { prnstr: { str: "東京" } }
+};
+deepEqual(x.getExtParam("301506092a8308868f4c01010204081306e69db1e4baac"), pExp2, "fail case (=prnstr)");
+
+});
+
+
+
 });
 </script>
   
@@ -1134,6 +1371,6 @@ deepEqual(x.getGeneralSubtree(hIn), pExpect, "{dn: /C=US/O=...}");
 </p>
 
 </body>
-<center><p>&copy; 2015-2022 Kenji Urushima</p></center>
+<center><p>&copy; 2015-2023 Kenji Urushima</p></center>
 </html>
 

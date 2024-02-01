@@ -915,12 +915,36 @@ test("SubjectKeyIdentifier class test (kid=CERTPEM)", function() {
 
 // SubjectAltName
 test("SubjectAltName", function() {
-  var o1 = new KJUR.asn1.x509.SubjectAltName({
-    critical: true,
-    array: [{uri: 'http://a.com'}, {uri: 'http://b.com'}]
-  });
-  equal(o1.getExtnValueHex(), "301c860c687474703a2f2f612e636f6d860c687474703a2f2f622e636f6d", "URIs critical");
-  equal(o1.getEncodedHex(), "30280603551d110101ff041e301c860c687474703a2f2f612e636f6d860c687474703a2f2f622e636f6d", "ext hex");
+var _SAN = KJUR.asn1.x509.SubjectAltName;
+var o, hExpect1, hExpect2;
+
+o = new _SAN({
+  critical: true,
+  array: [{uri: 'http://a.com'}, {uri: 'http://b.com'}]
+});
+hExpect1 = "301c860c687474703a2f2f612e636f6d860c687474703a2f2f622e636f6d";
+hExpect2 = "30280603551d110101ff041e301c860c687474703a2f2f612e636f6d860c687474703a2f2f622e636f6d";
+equal(o.getExtnValueHex(), hExpect1, "URI[2] critical");
+equal(o.tohex(), hExpect2, "URI[2] ext hex");
+
+o = new _SAN({array: [{rfc822: "aaa@a.com"}]});
+hExpect1 = "300b810961616140612e636f6d";
+hExpect2 = "30140603551d11040d300b810961616140612e636f6d";
+equal(o.getExtnValueHex(), hExpect1, "RFC822=aaa@a.com extnValue");
+equal(o.tohex(), hExpect2, "RFC822=aaa@a.com ext hex");
+
+o = new _SAN({array: [{ip: "192.168.1.5"}]});
+hExpect1 = "30068704c0a80105";
+hExpect2 = "300f0603551d11040830068704c0a80105";
+equal(o.getExtnValueHex(), hExpect1, "IP=192.168.1.5 extnValue");
+equal(o.tohex(), hExpect2, "IP=192.168.1.5 ext hex");
+
+o = new _SAN({array: [{other: {oid: "smtpUTF8Mailbox", value: {utf8str: {str: "a@a.com"}}}}]});
+hExpect1 = "3017a01506082b06010505070809a0090c076140612e636f6d";
+hExpect2 = "30200603551d1104193017a01506082b06010505070809a0090c076140612e636f6d";
+equal(o.getExtnValueHex(), hExpect1, "other smtpUTF8Mbox=a@a.com extnValue");
+equal(o.tohex(), hExpect2, "other smtpUTF8Mbox=a@a.com ext hex");
+
 });
 
 test("IssuerAltName", function() {
@@ -1063,29 +1087,30 @@ equal(
 });
 
 test("NoticeReference test", function() {
+var pIn, hExpect;
 var _NoticeReference = KJUR.asn1.x509.NoticeReference;
 
-equal(
-(new _NoticeReference({
+pIn = {
   org: {type: "bmp", str: "Sample Org"},
   noticenum: [{int: 3}, {hex: "01af"}]
-})).getEncodedHex(),
-"30151e0a53616d706c65204f72673007020103020201af",
-"both");
+};
+hExpect = "30151e0a53616d706c65204f72673007020103020201af";
+equal(new _NoticeReference(pIn).tohex(), hExpect, "both");
 
-equal(
-(new _NoticeReference({
-  org: {type: "bmp", str: "Sample Org"}
-})).getEncodedHex(),
-"300c1e0a53616d706c65204f7267",
-"org only");
+pIn = {
+  org: {type: "bmp", str: "Sample Org"},
+  noticenum: [3, {hex: "01af"}]
+};
+hExpect = "30151e0a53616d706c65204f72673007020103020201af";
+equal(new _NoticeReference(pIn).tohex(), hExpect, "both(2)");
 
-equal(
-(new _NoticeReference({
-  noticenum: [{int: 3}, {hex: "01af"}]
-})).getEncodedHex(),
-"30093007020103020201af",
-"noticenum only");
+pIn = { org: {type: "bmp", str: "Sample Org"} };
+hExpect = "300c1e0a53616d706c65204f7267";
+equal(new _NoticeReference(pIn).tohex(), hExpect, "org only");
+
+pIn = { noticenum: [{int: 3}, {hex: "01af"}] };
+hExpect = "30093007020103020201af";
+equal(new _NoticeReference(pIn).tohex(), hExpect, "noticenum only");
 });
 
 test("DisplayText test", function() {
@@ -1105,6 +1130,65 @@ equal((new _DisplayText({type: 'vis', str: 'aaa'})).getEncodedHex(),
 equal((new _DisplayText({type: 'bmp', str: 'aaa'})).getEncodedHex(),
       "1e03616161",
       "bmp,aaa=1e03616161");
+});
+
+test("PolicyMappings class test", function() {
+var _PolicyMappings = KJUR.asn1.x509.PolicyMappings;
+var _dump = ASN1HEX.dump;
+var pExt, hExpect;
+
+pParam = {
+    extname: "policyMappings",
+    array: [["anyPolicy", "0.1.2"]],
+    critical: true
+};
+hExpect = "30180603551d210101ff040e300c300a0604551d200006020102";
+equal(new _PolicyMappings(pParam).tohex(), hExpect, "any>0.1.2 critical");
+equal(_dump(new _PolicyMappings(pParam).tohex()),
+_dump(hExpect), "any>0.1.2 critical dump");
+
+pParam = {
+    extname: "policyMappings",
+    array: [["1.2.3", "0.1.2"],["1.2.5", "0.1.5"]],
+    critical: true
+};
+hExpect = "30200603551d210101ff04163014300806022a0306020102300806022a0506020105";
+equal(new _PolicyMappings(pParam).tohex(), hExpect, "1.2.3>0.1.2,1.2.5>0.1.5 critical");
+equal(_dump(new _PolicyMappings(pParam).tohex()),
+_dump(hExpect), "1.2.3>0.1.2,1.2.5>0.1.5 critical dump");
+
+});
+
+test("PolicyConstraints class test", function() {
+var _PolicyConstraints = KJUR.asn1.x509.PolicyConstraints;
+var _dump = ASN1HEX.dump;
+var pExt, hExpect;
+
+pParam = { extname: "policyConstraints", reqexp: 2, critical: true };
+hExpect = "300f0603551d240101ff04053003800102";
+equal(new _PolicyConstraints(pParam).tohex(), hExpect, "reqext=2 critical");
+equal(_dump(new _PolicyConstraints(pParam).tohex()),
+_dump(hExpect), "reqext=2 critical dump");
+
+pParam = { extname: "policyConstraints", inhibit: 3, critical: true };
+hExpect = "300f0603551d240101ff04053003810103";
+equal(new _PolicyConstraints(pParam).tohex(), hExpect, "inhibit=3 critical");
+equal(_dump(new _PolicyConstraints(pParam).tohex()),
+_dump(hExpect), "inhibit=3 critical dump");
+
+});
+
+test("InhibitAnyPolicy class test", function() {
+var _InhibitAnyPolicy = KJUR.asn1.x509.InhibitAnyPolicy;
+var _dump = ASN1HEX.dump;
+var pExt, hExpect;
+
+pParam = { extname: "inhibitAnyPolicy", skip: 3, critical: true };
+hExpect = "300d0603551d360101ff0403020103";
+equal(new _InhibitAnyPolicy(pParam).tohex(), hExpect, "skip=3 critical");
+equal(_dump(new _InhibitAnyPolicy(pParam).tohex()),
+_dump(hExpect), "skip=3 critical dump");
+
 });
 
 test("AuthorityInfoAccess class test", function() {
@@ -1327,9 +1411,10 @@ ASN1HEX.dump(hExpect),
 });
 
 test("SubjectDirectoryAttributes test", function() {
+var pIn, hExpect;
 var _SDA = KJUR.asn1.x509.SubjectDirectoryAttributes;
-var hExpect = "30720603551d09046b3069301d06082b060105050709013111180f31393730313233313233303030305a301306082b0601050507090231070c05546f6b796f300f06082b060105050709033103130146301006082b06010505070904310413024a50301006082b06010505070905310413024a50";
-var param = {
+hExpect = "30720603551d09046b3069301d06082b060105050709013111180f31393730313233313233303030305a301306082b0601050507090231070c05546f6b796f300f06082b060105050709033103130146301006082b06010505070904310413024a50301006082b06010505070905310413024a50";
+pIn = {
   extname: "subjectDirectoryAttributes",
   array: [
     { attr: "dateOfBirth", str: "19701231230000Z" },
@@ -1339,11 +1424,26 @@ var param = {
     { attr: "countryOfResidence", str: "JP" }
   ]
 };
-equal((new _SDA(param)).getEncodedHex(), hExpect, "hex");
+equal((new _SDA(pIn)).tohex(), hExpect, "str hex");
 equal(
-ASN1HEX.dump((new _SDA(param)).getEncodedHex()),
+ASN1HEX.dump((new _SDA(pIn)).tohex()),
 ASN1HEX.dump(hExpect),
-"dump");
+"str dump");
+
+hExpect = "302e0603551d0904273025300d06042a03040531051303616161301406082b060105050709033108130666656d616c65";
+pIn = {
+  extname: "subjectDirectoryAttributes",
+  array: [
+    { attr: "1.2.3.4.5", array: [{prnstr: "aaa"}] },
+    { attr: "gender", array: [{prnstr: "female"}] },
+  ]
+};
+equal((new _SDA(pIn)).tohex(), hExpect, "array hex");
+equal(
+ASN1HEX.dump((new _SDA(pIn)).tohex()),
+ASN1HEX.dump(hExpect),
+"array dump");
+
 });
 
 test("OID class test", function() {

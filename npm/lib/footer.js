@@ -8,7 +8,7 @@ exports.DSA = KJUR.crypto.DSA;
 exports.Signature = KJUR.crypto.Signature;
 exports.MessageDigest = KJUR.crypto.MessageDigest;
 exports.Mac = KJUR.crypto.Mac;
-exports.Cipher = KJUR.crypto.Cipher;
+//exports.Cipher = KJUR.crypto.Cipher;
 exports.KEYUTIL = KEYUTIL;
 exports.ASN1HEX = ASN1HEX;
 exports.X509 = X509;
@@ -53,6 +53,7 @@ exports.pemtohex = pemtohex;
 exports.hextoArrayBuffer = hextoArrayBuffer;
 exports.ArrayBuffertohex = ArrayBuffertohex;
 exports.zulutomsec = zulutomsec;
+exports.msectozulu = msectozulu;
 exports.zulutosec = zulutosec;
 exports.zulutodate = zulutodate;
 exports.datetozulu = datetozulu;
@@ -79,6 +80,13 @@ exports.binstrtobitstr = binstrtobitstr;
 exports.isBase64URLDot = isBase64URLDot;
 exports.namearraytobinstr = namearraytobinstr;
 exports.extendClass = extendClass;
+exports.foldnl = foldnl;
+exports.b64topem = b64topem;
+exports.pemtob64 = pemtob64;
+exports.timeogen = timetogen;
+exports.aryval = aryval;
+exports.inttohex = inttohex;
+exports.twoscompl = twoscompl;
 
 // name spaces
 exports.KJUR = KJUR;
@@ -86,5 +94,9 @@ exports.crypto = KJUR.crypto;
 exports.asn1 = KJUR.asn1;
 exports.jws = KJUR.jws;
 exports.lang = KJUR.lang;
+
+exports.VERSION = VERSION;
+exports.VERSION_FULL = VERSION_FULL;
+
 
 

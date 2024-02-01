@@ -1,9 +1,9 @@
-/* asn1x509-2.1.16.js (c) 2013-2022 Kenji Urushima | kjur.github.io/jsrsasign/license
+/* asn1x509-2.1.21.js (c) 2013-2022 Kenji Urushima | kjur.github.io/jsrsasign/license
  */
 /*
  * asn1x509.js - ASN.1 DER encoder classes for X.509 certificate
  *
- * Copyright (c) 2013-2022 Kenji Urushima (kenji.urushima@gmail.com)
+ * Copyright (c) 2013-2023 Kenji Urushima (kenji.urushima@gmail.com)
  *
  * This software is licensed under the terms of the MIT License.
  * https://kjur.github.io/jsrsasign/license
@@ -16,7 +16,7 @@
  * @fileOverview
  * @name asn1x509-1.0.js
  * @author Kenji Urushima kenji.urushima@gmail.com
- * @version jsrsasign 10.5.22 asn1x509 2.1.16 (2022-May-24)
+ * @version jsrsasign 10.9.0 asn1x509 2.1.21 (2023-Nov-27)
  * @since jsrsasign 2.1
  * @license <a href="https://kjur.github.io/jsrsasign/license/">MIT License</a>
  */
@@ -78,6 +78,9 @@ if (typeof KJUR.asn1 == "undefined" || !KJUR.asn1) KJUR.asn1 = {};
  * <li>{@link KJUR.asn1.x509.SubjectKeyIdentifier}</li>
  * <li>{@link KJUR.asn1.x509.KeyUsage}</li>
  * <li>{@link KJUR.asn1.x509.CertificatePolicies}</li>
+ * <li>{@link KJUR.asn1.x509.PolicyMappings} 2.5.29.33</li>
+ * <li>{@link KJUR.asn1.x509.PolicyConstraints} 2.5.29.36</li>
+ * <li>{@link KJUR.asn1.x509.InhibitAnyPolicy} 2.5.29.54</li>
  * <li>{@link KJUR.asn1.x509.SubjectAltName}</li>
  * <li>{@link KJUR.asn1.x509.IssuerAltName}</li>
  * <li>{@link KJUR.asn1.x509.BasicConstraints}</li>
@@ -480,6 +483,12 @@ KJUR.asn1.x509.Extensions = function(aParam) {
 		obj = new _KJUR_asn1_x509.CRLDistributionPoints(param);
 	    } else if (extname == "certificatePolicies") {
 		obj = new _KJUR_asn1_x509.CertificatePolicies(param);
+	    } else if (extname == "policyMappings") {
+		obj = new _KJUR_asn1_x509.PolicyMappings(param);
+	    } else if (extname == "policyConstraints") {
+		obj = new _KJUR_asn1_x509.PolicyConstraints(param);
+	    } else if (extname == "inhibitAnyPolicy") {
+		obj = new _KJUR_asn1_x509.InhibitAnyPolicy(param);
 	    } else if (extname == "authorityKeyIdentifier") {
 		obj = new _KJUR_asn1_x509.AuthorityKeyIdentifier(param);
 	    } else if (extname == "extKeyUsage") {
@@ -1329,6 +1338,177 @@ extendClass(KJUR.asn1.x509.DisplayText, KJUR.asn1.DERAbstractString);
 // ===== END CertificatePolicies related classes =====
 
 // =====================================================================
+
+/**
+ * PolicyMappings ASN.1 structure class<br/>
+ * @name KJUR.asn1.x509.PolicyMappings
+ * @class PolicyMappings ASN.1 structure class
+ * @param {Array} params associative array of parameters
+ * @extends KJUR.asn1.x509.Extension
+ * @since jsrsasign 10.6.1 asn1x509 2.1.17
+ * @description
+ * This class represents 
+ * <a href="https://tools.ietf.org/html/rfc5280#section-4.2.1.5">
+ * PolicyMappings extension defined in RFC 5280 4.2.1.5</a>.
+ * <pre>
+ * id-ce-policyMappings OBJECT IDENTIFIER ::=  { id-ce 33 }
+ * PolicyMappings ::= SEQUENCE SIZE (1..MAX) OF SEQUENCE {
+ *    issuerDomainPolicy      CertPolicyId,
+ *    subjectDomainPolicy     CertPolicyId }
+ * </pre>
+ * Its constructor can have following parameters:
+ * <ul>
+ * <li>array - Array: one or more pairs of OIDS</li>
+ * <li>critical - boolean: critical flag</li>
+ * </ul>
+ * OID in "array" can use an OID name registered in
+ * {@link KJUR.asn1.x509.OID} such as "anyPolicy".
+ * @example
+ * e1 = new KJUR.asn1.x509.PolicyMappings({
+ *   array: [["1.2.3", "0.1.2"], ["anyPolicy", "1.2.4"]],
+ *   critical: true
+ * });
+ */
+KJUR.asn1.x509.PolicyMappings = function(params) {
+    KJUR.asn1.x509.PolicyMappings.superclass.constructor.call(this, params);
+    var _KJUR = KJUR,
+	_KJUR_asn1 = _KJUR.asn1,
+	_KJUR_asn1_x509 = _KJUR_asn1.x509,
+	_newObject = _KJUR_asn1.ASN1Util.newObject;
+
+    this.params = null;
+
+    this.getExtnValueHex = function() {
+	var params = this.params;
+	var aItem = [];
+	for (var i = 0; i < params.array.length; i++) {
+	    var aOid = params.array[i];
+	    aItem.push({seq: [{oid: aOid[0]}, {oid: aOid[1]}]});
+	}
+	this.asn1ExtnValue = _newObject({seq: aItem});
+        return this.asn1ExtnValue.tohex();
+    };
+
+    this.oid = "2.5.29.33";
+    if (params !== undefined) {
+	this.params = params;
+    }
+};
+extendClass(KJUR.asn1.x509.PolicyMappings, KJUR.asn1.x509.Extension);
+
+/**
+ * PolicyConstraints ASN.1 structure class<br/>
+ * @name KJUR.asn1.x509.PolicyConstraints
+ * @class PolicyConstraints ASN.1 structure class
+ * @param {Array} params associative array of parameters
+ * @extends KJUR.asn1.x509.Extension
+ * @since jsrsasign 10.6.1 asn1x509 2.1.17
+ * @description
+ * This class represents 
+ * <a href="https://tools.ietf.org/html/rfc5280#section-4.2.1.11">
+ * PolicyConstraints extension defined in RFC 5280 4.2.1.11</a>.
+ * <pre>
+ * id-ce-policyConstraints OBJECT IDENTIFIER ::=  { id-ce 36 }
+ * PolicyConstraints ::= SEQUENCE {
+ *    requireExplicitPolicy  [0] SkipCerts OPTIONAL,
+ *    inhibitPolicyMapping   [1] SkipCerts OPTIONAL }
+ * SkipCerts ::= INTEGER (0..MAX)
+ * </pre>
+ * Its constructor can have following parameters:
+ * <ul>
+ * <li>reqexp - integer: the number of additional certificates that may appear 
+ * in the path before an explicit policy is required for the entire path.</li>
+ * <li>inhibit - integer: the number of additional certificates that may appear 
+ * in the path before policy mapping is no longer permitted.</li>
+ * <li>critical - boolean: critical flag</li>
+ * </ul>
+ * @example
+ * e1 = new KJUR.asn1.x509.PolicyConstraints({
+ *   reqexp: 3,
+ *   inhibit: 3,
+ *   critical: true
+ * });
+ */
+KJUR.asn1.x509.PolicyConstraints = function(params) {
+    KJUR.asn1.x509.PolicyConstraints.superclass.constructor.call(this, params);
+    var _KJUR = KJUR,
+	_KJUR_asn1 = _KJUR.asn1,
+	_KJUR_asn1_x509 = _KJUR_asn1.x509,
+	_newObject = _KJUR_asn1.ASN1Util.newObject;
+
+    this.params = null;
+
+    this.getExtnValueHex = function() {
+	var params = this.params;
+	var aItem = [];
+	if (params.reqexp != undefined) {
+	    aItem.push({tag: {tagi: "80", obj: {"int": params.reqexp}}});
+	}
+	if (params.inhibit != undefined) {
+	    aItem.push({tag: {tagi: "81", obj: {"int": params.inhibit}}});
+	}
+
+	this.asn1ExtnValue = _newObject({"seq": aItem});
+        return this.asn1ExtnValue.tohex();
+    };
+
+    this.oid = "2.5.29.36";
+    if (params !== undefined) {
+	this.params = params;
+    }
+};
+extendClass(KJUR.asn1.x509.PolicyConstraints, KJUR.asn1.x509.Extension);
+
+/**
+ * InhibitAnyPolicy ASN.1 structure class<br/>
+ * @name KJUR.asn1.x509.InhibitAnyPolicy
+ * @class InhibitAnyPolicy ASN.1 structure class
+ * @param {Array} params associative array of parameters
+ * @extends KJUR.asn1.x509.Extension
+ * @since jsrsasign 10.6.1 asn1x509 2.1.17
+ * @description
+ * This class represents 
+ * <a href="https://tools.ietf.org/html/rfc5280#section-4.2.1.14">
+ * InhibitAnyPolicy extension defined in RFC 5280 4.2.1.14</a>.
+ * <pre>
+ * id-ce-inhibitAnyPolicy OBJECT IDENTIFIER ::=  { id-ce 54 }
+ * InhibitAnyPolicy ::= SkipCerts
+ * SkipCerts ::= INTEGER (0..MAX)
+ * </pre>
+ * Its constructor can have following parameters:
+ * <ul>
+ * <li>skip - the number of additional non-self-issued certificates that may appear
+ * in the path before anyPolicy is no longer permitted<li>
+ * <li>critical - boolean: critical flag</li>
+ * </ul>
+ * @example
+ * e1 = new KJUR.asn1.x509.InhibitAnyPolicy({
+ *   skip: 5,
+ *   critical: true
+ * });
+ */
+KJUR.asn1.x509.InhibitAnyPolicy = function(params) {
+    KJUR.asn1.x509.InhibitAnyPolicy.superclass.constructor.call(this, params);
+    var _KJUR = KJUR,
+	_KJUR_asn1 = _KJUR.asn1,
+	_KJUR_asn1_x509 = _KJUR_asn1.x509,
+	_newObject = _KJUR_asn1.ASN1Util.newObject;
+
+    this.params = null;
+
+    this.getExtnValueHex = function() {
+	this.asn1ExtnValue = _newObject({"int": this.params.skip});
+        return this.asn1ExtnValue.tohex();
+    };
+
+    this.oid = "2.5.29.54";
+    if (params !== undefined) {
+	this.params = params;
+    }
+};
+extendClass(KJUR.asn1.x509.InhibitAnyPolicy, KJUR.asn1.x509.Extension);
+
+// =====================================================================
 /**
  * NameConstraints ASN.1 structure class<br/>
  * @name KJUR.asn1.x509.NameConstraints
@@ -2089,6 +2269,8 @@ extendClass(KJUR.asn1.x509.IssuerAltName, KJUR.asn1.x509.Extension);
  * @param {Array} params associative array of parameters
  * @extends KJUR.asn1.x509.Extension
  * @since jsrsasign 10.1.9 asn1x509 2.1.7
+ * @see
+ * 
  * @description
  * This class provides X.509v3 SubjectDirectoryAttributes extension
  * defined in <a href="https://tools.ietf.org/html/rfc3739#section-3.3.2">
@@ -2102,6 +2284,16 @@ extendClass(KJUR.asn1.x509.IssuerAltName, KJUR.asn1.x509.Extension);
  * AttributeType ::= OBJECT IDENTIFIER
  * AttributeValue ::= ANY DEFINED BY AttributeType
  * </pre>
+ * Value of member "array" is an array which as following associative arrays as elements:
+ * <ul>
+ * <li>attr: OID name or value of attribute type (ex. "gender" or "1.2.3.4")</li>
+ * <li>str: attribute value of pre defined types (See example for registered attribute types)</li>
+ * <li>array: array of ASN.1 parameters as attribute value (See {@link KJUR.asn1.ASN1Util#newObject})</li>
+ * </ul>
+ * <br/>
+ * NOTE: From jsrsasign 10.8.4, member "array in array" supported for an arbitrary
+ * attribute value.
+ *
  * @example
  * e1 = new KJUR.asn1.x509.SubjectDirectoryAttributes({
  *   extname: "subjectDirectoryAttributes",
@@ -2110,7 +2302,8 @@ extendClass(KJUR.asn1.x509.IssuerAltName, KJUR.asn1.x509.Extension);
  *     { attr: "placeOfBirth", str: "Tokyo" },
  *     { attr: "gender", str: "F" },
  *     { attr: "countryOfCitizenship", str: "JP" },
- *     { attr: "countryOfResidence", str: "JP" }
+ *     { attr: "countryOfResidence", str: "JP" },
+ *     { attr: "1.2.3.4.5", array: [{prnstr: {str: "aaa"}}] }
  *   ]
  * });
  */
@@ -2128,12 +2321,13 @@ KJUR.asn1.x509.SubjectDirectoryAttributes = function(params) {
 	for (var i = 0; i < this.params.array.length; i++) {
 	    var pAttr = this.params.array[i];
 
-	    var newparam = {
-		"seq": [
-		    {"oid": "1.2.3.4"},
-		    {"set": [{"utf8str": "DE"}]}
-		]
-	    };
+	    if (pAttr.attr != undefined && pAttr.array != undefined) {
+		var pObj = {"seq": [{"oid": pAttr.attr}, {"set": pAttr.array}]};
+		a.push(_newObject(pObj));
+		continue;
+	    }
+
+	    var newparam = {"seq": [{"oid": "1.2.3.4"}, {"set": [{"utf8str": "DE"}]}]};
 
 	    if (pAttr.attr == "dateOfBirth") {
 		newparam.seq[0].oid = _name2oid(pAttr.attr);
@@ -4008,7 +4202,7 @@ KJUR.asn1.x509.AlgorithmIdentifier.PSSNAME2ASN1TLV = {
  * gn = new KJUR.asn1.x509.GeneralName({uri:    'http://aaa.com/'});
  * gn = new KJUR.asn1.x509.GeneralName({other: {
  *   oid: "1.2.3.4",
- *   value: {utf8: "example"} // any ASN.1 which passed to ASN1Util.newObject
+ *   value: {utf8str: "example"} // any ASN.1 which passed to ASN1Util.newObject
  * }});
  *
  * gn = new KJUR.asn1.x509.GeneralName({ldapdn:     'O=Test,C=US'}); // DEPRECATED
@@ -4200,7 +4394,7 @@ extendClass(KJUR.asn1.x509.GeneralNames, KJUR.asn1.ASN1Object);
  * Constructor has two members:
  * <ul>
  * <li>oid - oid string (ex. "1.2.3.4")</li>
- * <li>value - associative array passed to ASN1Util.newObject</li>
+ * <li>value - JSON object passed to ASN1Util.newObject or ASN1Object object</li>
  * </ul>
  *
  * <pre>
@@ -4290,6 +4484,9 @@ KJUR.asn1.x509.OID = new function() {
     var _DERObjectIdentifier = KJUR.asn1.DERObjectIdentifier;
 
     this.name2oidList = {
+	'aes128-CBC':		'2.16.840.1.101.3.4.1.2',
+	'aes256-CBC':		'2.16.840.1.101.3.4.1.42',
+
         'sha1':                 '1.3.14.3.2.26',
         'sha256':               '2.16.840.1.101.3.4.2.1',
         'sha384':               '2.16.840.1.101.3.4.2.2',
@@ -4298,6 +4495,12 @@ KJUR.asn1.x509.OID = new function() {
         'md5':                  '1.2.840.113549.2.5',
         'md2':                  '1.3.14.7.2.2.1',
         'ripemd160':            '1.3.36.3.2.1',
+
+	'hmacWithSHA1':		'1.2.840.113549.2.7',
+	'hmacWithSHA224':	'1.2.840.113549.2.8',
+	'hmacWithSHA256':	'1.2.840.113549.2.9',
+	'hmacWithSHA384':	'1.2.840.113549.2.10',
+	'hmacWithSHA512':	'1.2.840.113549.2.11',
 
         'MD2withRSA':           '1.2.840.113549.1.1.2',
         'MD4withRSA':           '1.2.840.113549.1.1.3',
@@ -4361,9 +4564,11 @@ KJUR.asn1.x509.OID = new function() {
         'cRLDistributionPoints':'2.5.29.31',
         'certificatePolicies':  '2.5.29.32',
         'anyPolicy':  		'2.5.29.32.0',
+	'policyMappings':	'2.5.29.33',
         'authorityKeyIdentifier':'2.5.29.35',
         'policyConstraints':    '2.5.29.36',
         'extKeyUsage':          '2.5.29.37',
+	'inhibitAnyPolicy':	'2.5.29.54',
         'authorityInfoAccess':  '1.3.6.1.5.5.7.1.1',
         'ocsp':                 '1.3.6.1.5.5.7.48.1',
         'ocspBasic':            '1.3.6.1.5.5.7.48.1.1',
@@ -4378,6 +4583,9 @@ KJUR.asn1.x509.OID = new function() {
         'emailProtection':      '1.3.6.1.5.5.7.3.4',
         'timeStamping':         '1.3.6.1.5.5.7.3.8',
         'ocspSigning':          '1.3.6.1.5.5.7.3.9',
+
+	// 'otherNameForms':	'1.3.6.1.5.5.7.8',
+	'smtpUTF8Mailbox':	'1.3.6.1.5.5.7.8.9',
 
         'dateOfBirth':          '1.3.6.1.5.5.7.9.1',
         'placeOfBirth':         '1.3.6.1.5.5.7.9.2',
@@ -4418,6 +4626,19 @@ KJUR.asn1.x509.OID = new function() {
 	'archiveTimeStampV3':	'0.4.0.1733.2.4',//ETSI EN29319122/TS101733
 	'pdfRevocationInfoArchival':'1.2.840.113583.1.1.8', //Adobe
 	'adobeTimeStamp':	'1.2.840.113583.1.1.9.1', // Adobe
+	// CABF S/MIME BR
+	'smimeMailboxLegacy':		'2.23.140.1.5.1.1',
+	'smimeMailboxMulti':		'2.23.140.1.5.1.2',
+	'smimeMailboxStrict':		'2.23.140.1.5.1.3',
+	'smimeOrganizationLegacy':	'2.23.140.1.5.2.1',
+	'smimeOrganizationMulti':	'2.23.140.1.5.2.2',
+	'smimeOrganizationStrict':	'2.23.140.1.5.2.3',
+	'smimeSponsorLegacy':		'2.23.140.1.5.3.1',
+	'smimeSponsorMulti':		'2.23.140.1.5.3.2',
+	'smimeSponsorStrict':		'2.23.140.1.5.3.3',
+	'smimeIndividualLegacy':	'2.23.140.1.5.4.1',
+	'smimeIndividualMulti':		'2.23.140.1.5.4.2',
+	'smimeIndividualStrict':	'2.23.140.1.5.4.3',
     };
 
     this.atype2oidList = {
@@ -4435,6 +4656,7 @@ KJUR.asn1.x509.OID = new function() {
 	// http://blog.livedoor.jp/k_urushima/archives/656114.html
         'SN':		'2.5.4.4', // surname
         'T':		'2.5.4.12', // title
+        'GN':		'2.5.4.42', // givenName
         'DN':		'2.5.4.49', // distinguishedName
         'E':		'1.2.840.113549.1.9.1', // emailAddress in MS.NET or Bouncy
 	// other AttributeType name string (no short name)

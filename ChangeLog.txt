@@ -1,6 +1,162 @@
 
 ChangeLog for jsrsasign
 
+restore KJUR.crypto.Cipher class without RSA/RSAOAEP support
+* Changes from 11.0.0 to 11.1.0 (2024-Feb-01)
+  - src/crypto.js
+    - restore KJUR.crypto.Cipher class without RSA and RSAOAEP encryption/decryption support
+
+remove RSA and RSAOAEP encryption for Marvin attack
+* Changes from 10.9.0 to 11.0.0 (2024-Jan-16)
+  - remove RSA PKCS#1.5 end OAEP encryption/decryption for Marvin attack (#598)
+  - src/crypto.js
+    - remove KJUR.crypto.Cipher class for RSA and RSAOAEP encryption/decryption
+  - ext/{rsa,rsa2}.js
+    remove encrypt/decrypt/encryptOAEP/decryptOAEP for RSAKey class
+
+enhanced support for encrypted PKCS8
+* Changes from 10.8.6 to 10.9.0 (2023-Nov-27)
+  - KEYUTIL.getPEM is updated not to use weak ciphers (#599)
+    - default encryptionScheme is changed from des-EDE3-CBC to aes256-CBC
+    - default prf is changed from hmacWithSHA1 to hmacWithSHA256
+  - src/keyutil.js
+    - more encrypted PKCS#8 private key support
+      - KEYUTIL.getKey now supports encrypted PKCS#8 private key with
+        aes128-CBC, aes256-CBC encrypted and using hmacWithSHA224/256/384/512 as
+        psudorandom function.
+      - KEYUTIL.getPEM now supports such as above encrypted PKCS#8 PEM 
+        priavte key.
+  - src/crypto.js
+    - Cipher.decrypt/encrypt now supports symmetric ciphers (des-EDE3-CBC,aes128-CBC,aes256-CBC)
+  - src/base64x.js
+    - function inttohex and twoscompl are added
+  - src/asn1.js
+    - ASN1Util.bigIntToMinTwosComplementsHex is now DEPRECATED. use twoscompl.
+  - src/asn1x509.js
+    - aes*-CBC and hmacWithSHA* OIDs are added
+  - test/qunit-do-{base64x,crypto-cipher,keyutil-eprv,keyutil,keyutil-p8egen}.html
+    - update and add some test cases for above
+  - stop bower support (bower.json removed)
+
+X509.getExtSubjectDirectoryAttributes another bugfix
+* Changes from 10.8.5 to 10.8.6 (2023-Apr-26)
+  - src/x509.js
+    - another bugfix X509.getExtSubjectDirectoryAttributes method
+
+X509.getExtSubjectDirectoryAttributes bugfix
+* Changes from 10.8.4 to 10.8.5 (2023-Apr-26)
+  - src/x509.js
+    - bugfix X509.getExtSubjectDirectoryAttributes method
+
+more SubjectDirectoryExtension support
+* Changes from 10.8.3 to 10.8.4 (2023-Apr-26)
+  - src/asn1x509.js
+    - SubjectDirectoryAttributes class
+      - add array of array support for arbitrary attribute value
+  - src/x509.js
+    - add X509.getExtSubjectDirectoryAttributes method for 
+      ExtSubjectDirectoryAttributes extension
+    - update X509.getExtParam method
+      - support SubjectDirectoryAttributes
+      - parse unknown extension as ASN.1
+  - src/base64x.js
+    - bugfix foldnl function: when length of s is multiple of n,
+      result has unnecessary new line in the end of string.
+  - qunit-do-{asn1x509,x509-ext,base64x,x500-param}.html
+    - update and add some test cases for above
+
+CABF SMIMEBR OID support
+* Changes from 10.8.2 to 10.8.3 (2023-Apr-20)
+  - src/asn1x509.js
+    - Add OIDs for CABR S/MIME BR policy OIDs and GN givenName attribute type
+
+RSA OAEP encryption fix
+* Changes from 10.8.1 to 10.8.2 (2023-Apr-15)
+  - ext/rsa.js
+    - fix RSAEncryptOAEP for RSA OAEP encryption #582 #583
+      In rare cases, it have been generated ciphertext that
+      could not be decrpyted.
+
+npm export missing fix
+* Changes from 10.8.0 to 10.8.1 (2023-Apr-09)
+  - npm/{package.json, lib/footer.js}
+
+UserNotice of CertificatePolicies support and more
+* Changes from 10.7.0 to 10.8.0 (2023-Apr-08)
+  - x509.js
+    - X509.getUserNotice supports NoticeReference
+    - add asn1ToDisplayText method
+  - base64x.js
+    - add function msectozulu
+    - add aryval for nested JSON value access
+  - asn1.js
+    - DERInteger refactoring
+  - test/qunit-do-{asn1,asn1x509,base64x,x509-ext}.html
+    - update and add some test cases for above
+
+custom X.509 extension support and utility functions
+* Changes from 10.6.1 to 10.7.0 (2023-Mar-12)
+  - x509.js
+    - add X509.registExtParser(): register custom extension parser
+  - base64x.js
+    - add utility functions
+      - b64topem() Base64 string to PEM
+      - pemtob64() PEM to Base64 string
+      - foldnl() wrap string to fit in specified width
+      - timetogen() align to UTCTime to GeneralizedTime
+  - test/qunit-do-{x509-ext,base64x}.html
+    - update and add some test cases for above
+
+Add PolicyMappings, PolicyConstraints and InhibitAnyPolicy extension support
+* Changes from 10.6.0 to 10.6.1 (2022-Nov-20)
+  - asn1x509.js
+    - KJUR.asn1.x509.{PolicyMappings,PolicyConstraints,InhibitAnyPolicy} class added
+    - KJUR.asn1.x509.Extension updated to support
+      PolicyMappings, PolicyConstraints and InhibitAnyPolicy
+  - x509.js
+    - X509.getExt{PolicyMappings,PolicyConstraints,InhibitAnyPolicy} method added
+    - X509.getCriticalExtV utility method added
+    - X509.getExtParam updated to support 
+      {PolicyMappings,PolicyConstraints,InhibitAnyPolicy}
+    - X509.getInfo updated to support
+      {PolicyMappings,PolicyConstraints,InhibitAnyPolicy}
+  - test/qunit-do-{asn1x509-tbscert,x509-ext,x509-getinfo,x509-param}.html
+    - update and add some test cases for above
+
+StringPrep DN canonicalization support and some fix
+* Changes from 10.5.27 to 10.6.0 (2022-Nov-04)
+  - x509.js
+    - X509.getParam
+      - add support for optional parameter "dncanon" and "dnhex"
+    - X509.getInfo
+      - update representation for AltName
+    - X509.{getIssuer,getSubect}
+      - add support for optional argument flagCanon, flagHex
+    - X509.c14RDNArray added to convert from RDN array to canonicalized 
+      DN name (a.k.a. StringPrep).
+    - X509.getX500Name 
+      - API document updated
+    - X509.getOtherName
+      - member name changed from "other" to "value" for
+        consistency with KJUR.asn1.x509.OtherName class constructor.
+      - Also oid member value in return object will be an oid name if defined.
+    - X509.setCanonicalizedDN added to set "canon" member value
+  - asn1x509.js
+    - smtpUTF8Mailbox oid added to OID class
+    - API document fix
+  - asn1.js
+    - DERTaggedObject API document update
+  - test/qunit-do-{asn1x509,x509-ext,x509-getinfo,x509-param,x509}.html
+    - update some test cases for above
+
+CSRUtil class enhancement
+* Changes from 10.5.25 to 10.5.26 (2022-Jul-14)
+  - src/asn1csr.js
+    - CSRUtil.verifySignature method added
+    - CSRUtil.getParam enhanced to support optional argument flagTBS
+  - test/qunit-do-asn1csr.html
+    - update some test cases for above
+
 CVE-2022-25898 Security fix in JWS and JWT validation
 * Changes from 10.5.24 to 10.5.25 (2022-Jun-23)
   - src/jws.js

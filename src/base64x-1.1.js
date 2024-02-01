@@ -1,9 +1,9 @@
-/* base64x-1.1.30 (c) 2012-2022 Kenji Urushima | kjur.github.io/jsrsasign/license
+/* base64x-1.1.34 (c) 2012-2023 Kenji Urushima | kjur.github.io/jsrsasign/license
  */
 /*
  * base64x.js - Base64url and supplementary functions for Tom Wu's base64.js library
  *
- * Copyright (c) 2012-2022 Kenji Urushima (kenji.urushima@gmail.com)
+ * Copyright (c) 2012-2023 Kenji Urushima (kenji.urushima@gmail.com)
  *
  * This software is licensed under the terms of the MIT License.
  * https://kjur.github.io/jsrsasign/license
@@ -16,7 +16,7 @@
  * @fileOverview
  * @name base64x-1.1.js
  * @author Kenji Urushima kenji.urushima@gmail.com
- * @version jsrsasign 10.5.25 base64x 1.1.30 (2022-Jun-23)
+ * @version jsrsasign 10.9.0 base64x 1.1.34 (2023-Nov-27)
  * @since jsrsasign 2.1
  * @license <a href="https://kjur.github.io/jsrsasign/license/">MIT License</a>
  */
@@ -513,10 +513,29 @@ function hextob64(s) {
  * OTAxMjM0NTY3ODkwCg==
  */
 function hextob64nl(s) {
-    var b64 = hextob64(s);
-    var b64nl = b64.replace(/(.{64})/g, "$1\r\n");
-    b64nl = b64nl.replace(/\r\n$/, '');
-    return b64nl;
+    return foldnl(hextob64(s), 64);
+}
+
+/**
+ * wrap string with new lines to fit in specified width<br/>
+ * @name foldnl
+ * @function
+ * @param {string} s string
+ * @param {number} n width
+ * @return {string} wrapped string with new lines
+ * @since jsrsasign 10.7.0 base64x 1.1.31
+ * @description
+ * This function wrap a string with new lines to fit in specified width.
+ * @example
+ * foldnl("1234567890", 6)
+ * &rarr;
+ * 123456
+ * 7890
+ */
+function foldnl(s, n) {
+    s = s.replace(new RegExp('(.{' + n + '})', 'g'), "$1\r\n");
+    s = s.replace(/\s+$/, '');
+    return s;
 }
 
 /**
@@ -545,6 +564,32 @@ function b64nltohex(s) {
     return hex;
 } 
 
+// ==== b64 / pem =========================================
+/**
+ * get PEM string from Base64 string
+ * @name b64topem
+ * @function
+ * @param {string} b64 Base64 string of PEM body
+ * @param {string} pemHeader PEM header string (ex. 'RSA PRIVATE KEY')
+ * @return {string} PEM formatted string of input data
+ * @since jsrasign 10.7.0 base64x 1.1.31
+ * @description
+ * This function converts a Base64 string to a PEM string with
+ * a specified header. Its line break will be CRLF("\r\n").
+ * @example
+ * b64topem('YWFh', 'RSA PRIVATE KEY') &rarr;
+ * -----BEGIN PRIVATE KEY-----
+ * YWFh
+ * -----END PRIVATE KEY-----
+ */
+function b64topem(b64, pemHeader) {
+    return "-----BEGIN " + pemHeader + "-----\r\n" + 
+	foldnl(b64, 64) +
+        "\r\n-----END " + pemHeader + "-----\r\n";
+}
+
+
+
 // ==== hex / pem =========================================
 
 /**
@@ -565,9 +610,8 @@ function b64nltohex(s) {
  * -----END PRIVATE KEY-----
  */
 function hextopem(dataHex, pemHeader) {
-    var pemBody = hextob64nl(dataHex);
     return "-----BEGIN " + pemHeader + "-----\r\n" + 
-        pemBody + 
+	foldnl(hextob64(dataHex), 64) +
         "\r\n-----END " + pemHeader + "-----\r\n";
 }
 
@@ -579,6 +623,7 @@ function hextopem(dataHex, pemHeader) {
  * @param {String} sHead PEM header string without BEGIN/END(OPTION)
  * @return {String} hexadecimal string data of PEM contents
  * @since jsrsasign 7.2.1 base64x 1.1.12
+ *
  * @description
  * This static method gets a hexacedimal string of contents 
  * from PEM format data. You can explicitly specify PEM header 
@@ -586,10 +631,11 @@ function hextopem(dataHex, pemHeader) {
  * Any space characters such as white space or new line
  * will be omitted.<br/>
  * NOTE: Now {@link KEYUTIL.getHexFromPEM} and {@link X509.pemToHex}
- * have been deprecated since jsrsasign 7.2.1. 
+ * have been deprecated since jsrsasign 7.2.1. <br/>
  * Please use this method instead.
  * NOTE2: From jsrsasign 8.0.14 this can process multi
- * "BEGIN...END" section such as "EC PRIVATE KEY" with "EC PARAMETERS".
+ * "BEGIN...END" section such as "EC PRIVATE KEY" with "EC PARAMETERS".<br/>
+ *
  * @example
  * pemtohex("-----BEGIN PUBLIC KEY...") &rarr; "3082..."
  * pemtohex("-----BEGIN CERTIFICATE...", "CERTIFICATE") &rarr; "3082..."
@@ -598,7 +644,7 @@ function hextopem(dataHex, pemHeader) {
  */
 function pemtohex(s, sHead) {
     if (s.indexOf("-----BEGIN ") == -1)
-        throw "can't find PEM header: " + sHead;
+        throw new Error("can't find PEM header");
 
     if (sHead !== undefined) {
         s = s.replace(new RegExp('^[^]*-----BEGIN ' + sHead + '-----'), '');
@@ -608,6 +654,31 @@ function pemtohex(s, sHead) {
         s = s.replace(/-----END [^-]+-----[^]*$/, '');
     }
     return b64nltohex(s);
+}
+
+/**
+ * get Base64 string from PEM format data<br/>
+ * @name pemtob64
+ * @function
+ * @param {string} s PEM formatted string
+ * @return {string} Base64 string or null
+ * @since jsrsasign 10.7.0 base64x 1.1.31
+ *
+ * @description
+ * This static method gets a Base64 string of contents 
+ * from PEM format data.
+ * When s is not PEM data, it returns null.
+ *
+ * @example
+ * pemtohex("-----BEGIN CERTIFICATE...", "CERTIFICATE") &rarr; "MIIBvTCC..."
+ */
+function pemtob64(s) {
+    if (s.indexOf("-----BEGIN ") == -1 ||
+        s.indexOf("-----END ") == -1 ) return null;
+    s = s.replace(/^[\s\S]*?-----BEGIN [^-]+-----/m, '');
+    s = s.replace(/-----END [\s\S]+$/m, '');
+    s = s.replace(/\s+/g, '');
+    return (s.match(/^[0-9a-zA-Z+/=]+$/)) ? s : null;
 }
 
 // ==== hex / ArrayBuffer =================================
@@ -695,18 +766,11 @@ function zulutomsec(s) {
     var year, month, day, hour, min, sec, msec, d;
     var sYear, sFrac, sMsec, matchResult;
 
-    matchResult = s.match(/^(\d{2}|\d{4})(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)(|\.\d+)Z$/);
+    s = timetogen(s);
+    matchResult = s.match(/^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)(|\.\d+)Z$/);
 
     if (matchResult) {
-        sYear = matchResult[1];
-	year = parseInt(sYear);
-        if (sYear.length === 2) {
-	    if (50 <= year && year < 100) {
-		year = 1900 + year;
-	    } else if (0 <= year && year < 50) {
-		year = 2000 + year;
-	    }
-	}
+	year = parseInt(matchResult[1]);
 	month = parseInt(matchResult[2]) - 1;
 	day = parseInt(matchResult[3]);
 	hour = parseInt(matchResult[4]);
@@ -722,6 +786,38 @@ function zulutomsec(s) {
 	return Date.UTC(year, month, day, hour, min, sec, msec);
     }
     throw new Error("unsupported zulu format: " + s);
+}
+
+/**
+ * Unix origin milliseconds GeneralizedTime string<br>
+ * @name msectozulu
+ * @function
+ * @param {number} n milliseconds from Unix origin time (i.e. Jan 1, 1970 0:00:00 UTC)
+ * @return {string} GeneralizedTime string (ex. 20170412235959.384Z)
+ * @since jsrsasign 10.8.0 base64x 1.1.31
+ *
+ * @description
+ * This function converts from milliseconds of Unix origin time (ex. 1199145599000
+ * for 31 Dec 2007 23:59:59 GMT) to GeneralizedTime string (i.e. YYYYMMDDHHmmSSZ).
+ * The result string may have a fraction of second.
+ *
+ * @example
+ * msectozulu(1199145599000) &rarr; "20071231235959Z"       #Mon, 31 Dec 2007 23:59:59     GMT
+ * msectozulu(1199145599100) &rarr; "20071231235959.1Z"     #Mon, 31 Dec 2007 23:59:59.1   GMT
+ * msectozulu(1199145599123) &rarr; "20071231235959.123Z"   #Mon, 31 Dec 2007 23:59:59.123 GMT
+ */
+function msectozulu(n) {
+    var d = new Date(n),
+        year = ("0000" + d.getUTCFullYear()).slice(-4),
+        mon =  ("00" + (d.getUTCMonth() + 1)).slice(-2),
+        day =  ("00" + d.getUTCDate()).slice(-2),
+        hour = ("00" + d.getUTCHours()).slice(-2),
+        min =  ("00" + d.getUTCMinutes()).slice(-2),
+        sec =  ("00" + d.getUTCSeconds()).slice(-2),
+	msec = ("000" + d.getUTCMilliseconds()).slice(-3);
+    msec = msec.replace(/0+$/, '');
+    msec = (msec != '') ? '.' + msec : msec;
+    return year + mon + day + hour + min + sec + msec + "Z";
 }
 
 /**
@@ -773,8 +869,6 @@ function zulutodate(s) {
     return new Date(zulutomsec(s));
 }
 
-// ==== Date / zulu =================================
-
 /**
  * Date object to zulu time string<br>
  * @name datetozulu
@@ -821,6 +915,33 @@ function datetozulu(d, flagUTCTime, flagMilli) {
 	}
     }
     s += "Z";
+    return s;
+}
+
+/**
+ * GeneralizedTime or UTCTime string to GeneralizedTime<br>
+ * @name timetogen
+ * @function
+ * @param {string} s GeneralizedTime or UTCTime string (ex. 20170412235959.384Z)
+ * @return {string} GeneralizedTime
+ * @since jsrsasign 10.7.0 base64x 1.1.31
+ * @description
+ * This function converts UTCTime string (i.e. YYMMDDHHmmSSZ ) to 
+ * GeneralizedTime (YYYYMMDDHHmmSSZ) when the argument 's' is UTCTime. 
+ * Argument string may have fraction of seconds and
+ * its length is one or more digits such as "170410235959.1234567Z".
+ * As for UTCTime, if year "YY" is equal or less than 49 then it is 20YY.
+ * If year "YY" is equal or greater than 50 then it is 19YY.
+ * @example
+ * timetogen(  "071231235959Z") &rarr; "20071231235959Z"
+ * timetogen(  "971231235959Z") &rarr; "19971231235959Z"
+ * timetogen("20071231235959Z") &rarr; "20071231235959Z"
+ * timetogen(  "971231235959.123Z") &rarr; "19971231235959.123Z"
+ */
+function timetogen(s) {
+    if (s.match(/^[0-9]{12}Z$/) || s.match(/^[0-9]{12}[.][0-9]*Z$/)) {
+	return (s.match(/^[0-4]/)) ? "20" + s : "19" + s;
+    }
     return s;
 }
 
@@ -1624,6 +1745,85 @@ function hextooid(h) {
     }
 };
 
+// ==== int / hex =================================
+/**
+ * get hexadecimal string of minimum two's complement of integer<br/>
+ * @name inttohex
+ * @function
+ * @param {number} i integer value
+ * @return {string} hexadecimal string of two's complement of the integer
+ * @since jsrsasign 10.9.0 base64x 1.1.34
+ * @see twoscompl
+ * @see DERInteger
+ *
+ * @description
+ * This static method converts from integer value to a minimum length 
+ * hexadecimal string of two's complement of the integer.
+ * This method is useful for {@link DERInteger}.
+ *
+ * @example
+ * inttohex(1) &rarr; "01"
+ * inttohex(-1) &rarr; "ff"
+ * inttohex(2048) &rarr; "0800"
+ * inttohex(-2048) &rarr; "f800"
+ */
+function inttohex(i) {
+    var bi = new BigInteger(String(i), 10);
+    return twoscompl(bi);
+}
+
+/**
+ * get hexadecimal string of minimum two's complement of BigInteger<br/>
+ * @name twoscompl
+ * @function
+ * @param {BigInteger} bi BigInteger object
+ * @return {string} hexadecimal string of two's complement of the integer
+ * @since jsrsasign 10.9.0 base64x 1.1.34
+ * @see inttohex
+ *
+ * @description
+ * This static method converts from a BigInteger object to a minimum length
+ * hexadecimal string of two's complement of the integer.
+ * <br/>
+ * NOTE: This function is a replacement of deprecated ASN1Util.bigIntToMinTwosComplementsHex method.
+ *
+ * @example
+ * twoscompl(new BigInteger("1", 10)) &rarr; "01"
+ * twoscompl(new BigInteger("-1", 10)) &rarr; "ff"
+ */
+function twoscompl(bi) {
+    var h = bi.toString(16);
+    // positive
+    if (h.substr(0, 1) != '-') {
+	if (h.length % 2 == 1) {
+	    h = '0' + h;
+	} else {
+	    if (! h.match(/^[0-7]/)) {
+		h = '00' + h;
+	    }
+	}
+	return h;
+    }
+    // negative
+    var hPos = h.substr(1);
+    var xorLen = hPos.length;
+    if (xorLen % 2 == 1) {
+        xorLen += 1;
+    } else {
+        if (! h.match(/^[0-7]/)) {
+            xorLen += 2;
+        }
+    }
+    var hMask = '';
+    for (var i = 0; i < xorLen; i++) {
+        hMask += 'f';
+    }
+    var biMask = new BigInteger(hMask, 16);
+    var biNeg = biMask.xor(bi).add(BigInteger.ONE);
+    h = biNeg.toString(16).replace(/^-/, '');
+    return h;
+}
+
 /**
  * string padding<br/>
  * @name strpad
@@ -1854,6 +2054,49 @@ function namearraytobinstr (namearray, namedb) {
     }
     return r;
 }
+
+/**
+ * get value of array by key name list<br/>
+ * @function
+ * @param {object} val array of associative array
+ * @param {string} keys concatinated key list with dot (ex. 'type.name.0.info')
+ * @param {object} def default value if value is not found (OPTIONAL)
+ * @return {object} value if found otherwise returns def
+ * @since jsrsasign 10.8.0 base64x 1.1.32
+ *
+ * @description
+ * This function returns the value of an array or associative array 
+ * which referred by a concatinated key list string.
+ * If a value for key is not defined, it returns 'undefined' by default.
+ * When an optional argument 'def' is specified and a value for key is
+ * not defined, it returns a value of 'def'.
+ * 
+ * @example
+ * let p = {
+ *   fruit: apple,
+ *   info: [
+ *     { toy: 4 },
+ *     { pen: 6 }
+ *   ]
+ * };
+ * aryval(p, 'fruit') &rarr "apple"
+ * aryval(p, 'info') &rarr [{toy: 4},{pen: 6}]
+ * aryval(p, 'info.1') &rarr {pen: 6}
+ * aryval(p, 'info.1.pen') &rarr 6
+ * aryval(p, 'money.amount') &rarr undefined
+ * aryval(p, 'money.amount', null) &rarr null
+ */
+function aryval(val, keys, def) {
+    if (typeof val != "object") return undefined
+    var keys = String(keys).split('.');
+    for (var i = 0; i < keys.length && val; i++) {
+	var key = keys[i];
+	if (key.match(/^[0-9]+$/)) key = parseInt(key);
+        val = val[key];
+    }
+    return val || val === false ? val : def;
+}
+
 
 // =======================================================
 /**

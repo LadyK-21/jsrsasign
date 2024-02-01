@@ -1,4 +1,4 @@
-/* asn1-1.0.26.js (c) 2013-2022 Kenji Urushima | kjur.github.io/jsrsasign/license
+/* asn1-1.0.28.js (c) 2013-2023 Kenji Urushima | kjur.github.io/jsrsasign/license
  */
 /*
  * asn1.js - ASN.1 DER encoder classes
@@ -16,7 +16,7 @@
  * @fileOverview
  * @name asn1-1.0.js
  * @author Kenji Urushima kenji.urushima@gmail.com
- * @version jsrsasign 10.5.22 asn1 1.0.26 (2022-May-24)
+ * @version jsrsasign 10.9.0 asn1 1.0.28 (2023-Nov-27)
  * @since jsrsasign 2.1
  * @license <a href="https://kjur.github.io/jsrsasign/license/">MIT License</a>
  */
@@ -103,36 +103,9 @@ KJUR.asn1.ASN1Util = new function() {
         if ((h.length % 2) == 1) h = '0' + h;
         return h;
     };
-    this.bigIntToMinTwosComplementsHex = function(bigIntegerValue) {
-        var h = bigIntegerValue.toString(16);
-        if (h.substr(0, 1) != '-') {
-            if (h.length % 2 == 1) {
-                h = '0' + h;
-            } else {
-                if (! h.match(/^[0-7]/)) {
-                    h = '00' + h;
-                }
-            }
-        } else {
-            var hPos = h.substr(1);
-            var xorLen = hPos.length;
-            if (xorLen % 2 == 1) {
-                xorLen += 1;
-            } else {
-                if (! h.match(/^[0-7]/)) {
-                    xorLen += 2;
-                }
-            }
-            var hMask = '';
-            for (var i = 0; i < xorLen; i++) {
-                hMask += 'f';
-            }
-            var biMask = new BigInteger(hMask, 16);
-            var biNeg = biMask.xor(bigIntegerValue).add(BigInteger.ONE);
-            h = biNeg.toString(16).replace(/^-/, '');
-        }
-        return h;
-    };
+    this.bigIntToMinTwosComplementsHex = function(bigIntegerValue) { // DEPRECATED. use twoscompl
+	return twoscompl(bigIntegerValue);
+    }
     /**
      * get PEM string from hexadecimal data and header string
      * @name getPEMStringFromHex
@@ -891,6 +864,8 @@ extendClass(KJUR.asn1.DERBoolean, KJUR.asn1.ASN1Object);
 KJUR.asn1.DERInteger = function(params) {
     KJUR.asn1.DERInteger.superclass.constructor.call(this);
     this.hT = "02";
+    this.params = null;
+    var _biToTwoCompl = twoscompl;
 
     /**
      * set value by Tom Wu's BigInteger object
@@ -900,9 +875,8 @@ KJUR.asn1.DERInteger = function(params) {
      * @param {BigInteger} bigIntegerValue to set
      */
     this.setByBigInteger = function(bigIntegerValue) {
-        this.hTLV = null;
-        this.isModified = true;
-        this.hV = KJUR.asn1.ASN1Util.bigIntToMinTwosComplementsHex(bigIntegerValue);
+	this.isModified = true;
+	this.params = { bigint: bigIntegerValue };
     };
 
     /**
@@ -913,8 +887,8 @@ KJUR.asn1.DERInteger = function(params) {
      * @param {Integer} integer value to set
      */
     this.setByInteger = function(intValue) {
-        var bi = new BigInteger(String(intValue), 10);
-        this.setByBigInteger(bi);
+	this.isModified = true;
+	this.params = intValue;
     };
 
     /**
@@ -931,25 +905,38 @@ KJUR.asn1.DERInteger = function(params) {
      * new KJUR.asn1.DERInteger(123);
      * new KJUR.asn1.DERInteger({'int': 123});
      * new KJUR.asn1.DERInteger({'hex': '1fad'});
+     * new KJUR.asn1.DERInteger({'bigint': new BigInteger("1234", 10)});
      */
     this.setValueHex = function(newHexString) {
-        this.hV = newHexString;
+	this.isModified = true;
+	this.params = { hex: newHexString };
     };
 
     this.getFreshValueHex = function() {
+	var params = this.params;
+	var bi = null;
+	if (params == null) throw new Error("value not set");
+
+	if (typeof params == "object" && params.hex != undefined) {
+	    this.hV = params.hex;
+            return this.hV;
+	}
+
+	if (typeof params == "number") {
+	    bi = new BigInteger(String(params), 10);
+	} else if (params["int"] != undefined) {
+	    bi = new BigInteger(String(params["int"]), 10);
+	} else if (params.bigint != undefined) {
+	    bi = params.bigint;
+	} else {
+	    throw new Error("wrong parameter");
+	}
+	this.hV = _biToTwoCompl(bi);
         return this.hV;
     };
 
-    if (typeof params != "undefined") {
-        if (typeof params['bigint'] != "undefined") {
-            this.setByBigInteger(params['bigint']);
-        } else if (typeof params['int'] != "undefined") {
-            this.setByInteger(params['int']);
-        } else if (typeof params == "number") {
-            this.setByInteger(params);
-        } else if (typeof params['hex'] != "undefined") {
-            this.setValueHex(params['hex']);
-        }
+    if (params != undefined) {
+	this.params = params;
     }
 };
 extendClass(KJUR.asn1.DERInteger, KJUR.asn1.ASN1Object);
@@ -1341,7 +1328,7 @@ KJUR.asn1.DEREnumerated = function(params) {
     this.setByBigInteger = function(bigIntegerValue) {
         this.hTLV = null;
         this.isModified = true;
-        this.hV = KJUR.asn1.ASN1Util.bigIntToMinTwosComplementsHex(bigIntegerValue);
+        this.hV = twoscompl(bigIntegerValue);
     };
 
     /**
@@ -1724,6 +1711,7 @@ extendClass(KJUR.asn1.DERSet, KJUR.asn1.DERAbstractStructured);
  * @name KJUR.asn1.DERTaggedObject
  * @class class for ASN.1 DER TaggedObject
  * @extends KJUR.asn1.ASN1Object
+ * @see KJUR_asn1.ASN1Util.newObject
  *
  * @description
  * <br/>
@@ -1737,12 +1725,20 @@ extendClass(KJUR.asn1.DERSet, KJUR.asn1.DERAbstractStructured);
  * <li>tag - specify tag (default is 'a0' which means [0])</li>
  * <li>explicit - specify true if this is explicit tag otherwise false 
  *     (default is 'true').</li>
- * <li>obj - specify ASN1Object which is tagged</li>
+ * <li>obj - specify ASN1Object or JSON object which will be tagged</li>
  * <li>tage - specify tag with explicit</li>
  * <li>tagi - specify tag with implicit</li>
  * </ul>
+ * As for the member "obj" value of JSON object, 
+ * {@link KJUR_asn1.ASN1Util.newObject} is used to generate.
  *
  * @example
+ * // by JSON
+ * new KJUR.asn1.DERTaggedObject({
+ *  tag:'a0', explicit: true, obj: { "prnstr": { "str": "aaa" } }
+ * }).tohex()
+ *
+ * // by ASN1Object object
  * new KJUR.asn1.DERTaggedObject({
  *  tage:'a0', obj: new KJUR.asn1.DERInteger({int: 3}) // explicit
  * }) 
